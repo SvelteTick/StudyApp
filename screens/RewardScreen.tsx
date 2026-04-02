@@ -10,26 +10,10 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Palette, Spacing, Radius } from '@/constants/theme';
-
-// ─── Mock Rewards Data ────────────────────────────────────────────────────────
-const BADGES = [
-  { id: 'b1', emoji: '🏆', name: 'First Session', desc: 'Complete your first focus session', unlocked: true },
-  { id: 'b2', emoji: '🔥', name: 'On Fire',        desc: '5-day streak achieved',             unlocked: true },
-  { id: 'b3', emoji: '⚡', name: 'Speed Learner',  desc: '10 sessions in one week',           unlocked: false },
-  { id: 'b4', emoji: '🌙', name: 'Night Owl',      desc: 'Study after 10pm',                  unlocked: false },
-  { id: 'b5', emoji: '🎯', name: 'Goal Crusher',   desc: 'Hit daily goal 7 days in a row',    unlocked: false },
-  { id: 'b6', emoji: '🧠', name: 'Big Brain',      desc: 'Reach Level 10',                    unlocked: false },
-];
-
-const RECENT_XP = [
-  { id: 'x1', label: 'Focus Session (25 min)', xp: 50,  time: '2h ago' },
-  { id: 'x2', label: 'Daily Goal Bonus',        xp: 100, time: '3h ago' },
-  { id: 'x3', label: 'Focus Session (15 min)', xp: 30,  time: 'Yesterday' },
-  { id: 'x4', label: '5-Day Streak Bonus',      xp: 75,  time: 'Yesterday' },
-];
+import type { UserData, Badge, XPEntry } from '@/hooks/useUserProgress';
 
 // ─── Animated Badge ───────────────────────────────────────────────────────────
-function BadgeCard({ badge, delay }: { badge: (typeof BADGES)[0]; delay: number }) {
+function BadgeCard({ badge, delay }: { badge: Badge; delay: number }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
 
@@ -90,7 +74,7 @@ function BadgeCard({ badge, delay }: { badge: (typeof BADGES)[0]; delay: number 
 }
 
 // ─── XP History Row ───────────────────────────────────────────────────────────
-function XPRow({ item }: { item: (typeof RECENT_XP)[0] }) {
+function XPRow({ item }: { item: XPEntry }) {
   return (
     <View style={styles.xpRow}>
       <View style={styles.xpRowLeft}>
@@ -106,8 +90,9 @@ function XPRow({ item }: { item: (typeof RECENT_XP)[0] }) {
 }
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
-export default function RewardScreen() {
-  const totalXP = RECENT_XP.reduce((sum, r) => sum + r.xp, 0);
+export default function RewardScreen({ userData }: { userData: UserData }) {
+  const { progress } = userData;
+  const totalXP = progress.totalXPEarned;
 
   return (
     <View style={styles.root}>
@@ -141,11 +126,11 @@ export default function RewardScreen() {
         >
           <View>
             <Text style={styles.xpBannerLabel}>Total XP Earned</Text>
-            <Text style={styles.xpBannerValue}>350 XP</Text>
+            <Text style={styles.xpBannerValue}>{totalXP} XP</Text>
           </View>
           <View style={styles.xpBannerRight}>
             <Text style={styles.xpBannerEmoji}>⚡</Text>
-            <Text style={styles.xpBannerLevel}>Level 3</Text>
+            <Text style={styles.xpBannerLevel}>Level {progress.level}</Text>
           </View>
         </LinearGradient>
 
@@ -153,12 +138,12 @@ export default function RewardScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🏅 Badges</Text>
           <Text style={styles.sectionSub}>
-            {BADGES.filter((b) => b.unlocked).length} / {BADGES.length} unlocked
+            {progress.badges.filter((b) => b.unlocked).length} / {progress.badges.length} unlocked
           </Text>
         </View>
 
         <View style={styles.badgeGrid}>
-          {BADGES.map((badge, idx) => (
+          {progress.badges.map((badge, idx) => (
             <BadgeCard key={badge.id} badge={badge} delay={idx * 80} />
           ))}
         </View>
@@ -169,10 +154,10 @@ export default function RewardScreen() {
         </View>
 
         <View style={styles.card}>
-          {RECENT_XP.map((item, idx) => (
+          {progress.xpHistory.map((item, idx) => (
             <React.Fragment key={item.id}>
               <XPRow item={item} />
-              {idx < RECENT_XP.length - 1 && <View style={styles.divider} />}
+              {idx < progress.xpHistory.length - 1 && <View style={styles.divider} />}
             </React.Fragment>
           ))}
         </View>

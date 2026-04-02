@@ -11,21 +11,9 @@ import {
 } from 'react-native';
 import { Palette, Spacing, Radius } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { UserData } from '@/hooks/useUserProgress';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-// ─── Mock Data ───────────────────────────────────────────────────────────────
-const USER_DATA = {
-  name: 'Ky',
-  level: 3,
-  currentXP: 350,
-  nextLevelXP: 500,
-  streakDays: 5,
-  sessionsDoneToday: 2,
-  minutesToday: 50,
-  dailyGoal: 3,
-  sessionType: '25 min',
-};
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -82,11 +70,14 @@ function GoalProgressDots({
 }
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
-export default function HomeScreen({
-  onStartSession,
-}: {
+interface Props {
   onStartSession?: () => void;
-}) {
+  onLogout?: () => void;
+  userData: UserData;
+}
+
+export default function HomeScreen({ onStartSession, onLogout, userData }: Props) {
+  const { profile, progress } = userData;
   const buttonScale = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -105,9 +96,7 @@ export default function HomeScreen({
     }).start();
   };
 
-  const xpPercent = Math.round(
-    (USER_DATA.currentXP / USER_DATA.nextLevelXP) * 100
-  );
+  const xpPercent = Math.round((progress.currentXP / progress.nextLevelXP) * 100);
 
   return (
     <View style={styles.root}>
@@ -126,10 +115,15 @@ export default function HomeScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Greeting ── */}
-        <View style={styles.greeting}>
-          <Text style={styles.greetingLabel}>Good morning,</Text>
-          <Text style={styles.greetingName}>{USER_DATA.name} 👋</Text>
+        {/* ── Header Row ── */}
+        <View style={styles.headerRow}>
+          <View style={styles.greeting}>
+            <Text style={styles.greetingLabel}>Good morning,</Text>
+            <Text style={styles.greetingName}>{profile.name} 👋</Text>
+          </View>
+          <TouchableOpacity onPress={onLogout} style={styles.logoutBtn} accessibilityLabel="Logout">
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ────────────────────────────────────────────────────────────────── */}
@@ -154,7 +148,7 @@ export default function HomeScreen({
               <Text style={styles.startButtonLabel}>Start Focus Session</Text>
               <View style={styles.sessionBadge}>
                 <Text style={styles.sessionBadgeText}>
-                  {USER_DATA.sessionType}
+                  {progress.preferredSessionType}
                 </Text>
               </View>
             </LinearGradient>
@@ -169,22 +163,22 @@ export default function HomeScreen({
             <View>
               <Text style={styles.cardLabel}>Experience Points</Text>
               <Text style={styles.xpValue}>
-                {USER_DATA.currentXP}{' '}
-                <Text style={styles.xpMax}>/ {USER_DATA.nextLevelXP} XP</Text>
+                {progress.currentXP}{' '}
+                <Text style={styles.xpMax}>/ {progress.nextLevelXP} XP</Text>
               </Text>
             </View>
             <View style={styles.levelBadge}>
               <Text style={styles.levelBadgeLabel}>LVL</Text>
-              <Text style={styles.levelBadgeValue}>{USER_DATA.level}</Text>
+              <Text style={styles.levelBadgeValue}>{progress.level}</Text>
             </View>
           </View>
           <XPProgressBar
-            current={USER_DATA.currentXP}
-            max={USER_DATA.nextLevelXP}
+            current={progress.currentXP}
+            max={progress.nextLevelXP}
           />
           <Text style={styles.xpHint}>
-            {USER_DATA.nextLevelXP - USER_DATA.currentXP} XP to Level{' '}
-            {USER_DATA.level + 1} ✨
+            {progress.nextLevelXP - progress.currentXP} XP to Level{' '}
+            {progress.level + 1} ✨
           </Text>
         </View>
 
@@ -200,7 +194,7 @@ export default function HomeScreen({
             <Text style={styles.cardLabel}>Current Streak</Text>
             <View style={styles.streakRow}>
               <Text style={styles.fireIcon}>🔥</Text>
-              <Text style={styles.streakNumber}>{USER_DATA.streakDays}</Text>
+              <Text style={styles.streakNumber}>{progress.streakDays}</Text>
             </View>
             <Text style={styles.streakSub}>day streak</Text>
             <Text style={styles.streakMessage}>Keep it up! 💪</Text>
@@ -210,13 +204,13 @@ export default function HomeScreen({
           <View style={[styles.card, styles.halfCard]}>
             <Text style={styles.cardLabel}>Today</Text>
             <Text style={styles.todaySessionsNum}>
-              {USER_DATA.sessionsDoneToday}
+              {progress.sessionsDoneToday}
             </Text>
             <Text style={styles.todaySub}>sessions</Text>
             <View style={styles.todayMinutesRow}>
               <Text style={styles.todayMinutesIcon}>⏱</Text>
               <Text style={styles.todayMinutes}>
-                {USER_DATA.minutesToday} min
+                {progress.minutesToday} min
               </Text>
             </View>
           </View>
@@ -233,31 +227,31 @@ export default function HomeScreen({
             <View>
               <Text style={styles.cardLabel}>Daily Goal</Text>
               <Text style={styles.goalTitle}>
-                Complete {USER_DATA.dailyGoal} sessions today
+                Complete {progress.dailyGoal} sessions today
               </Text>
             </View>
             <View style={styles.goalCountBadge}>
               <Text style={styles.goalCountText}>
-                {USER_DATA.sessionsDoneToday}/{USER_DATA.dailyGoal}
+                {progress.sessionsDoneToday}/{progress.dailyGoal}
               </Text>
             </View>
           </View>
 
           <GoalProgressDots
-            done={USER_DATA.sessionsDoneToday}
-            total={USER_DATA.dailyGoal}
+            done={progress.sessionsDoneToday}
+            total={progress.dailyGoal}
           />
 
           <View style={styles.goalFooter}>
             <Text style={styles.goalBonusText}>
               🎁 Bonus XP on completion!
             </Text>
-            {USER_DATA.sessionsDoneToday >= USER_DATA.dailyGoal ? (
+            {progress.sessionsDoneToday >= progress.dailyGoal ? (
               <Text style={styles.goalCompleted}>✅ Goal Reached!</Text>
             ) : (
               <Text style={styles.goalRemaining}>
-                {USER_DATA.dailyGoal - USER_DATA.sessionsDoneToday} session
-                {USER_DATA.dailyGoal - USER_DATA.sessionsDoneToday !== 1
+                {progress.dailyGoal - progress.sessionsDoneToday} session
+                {progress.dailyGoal - progress.sessionsDoneToday !== 1
                   ? 's'
                   : ''}{' '}
                 left
@@ -298,9 +292,28 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
 
-  // ── Greeting ──
-  greeting: {
+  // ── Header & Greeting ──
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: Spacing.xs,
+  },
+  greeting: {
+    gap: 2,
+  },
+  logoutBtn: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 8,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  logoutText: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
   greetingLabel: {
     fontSize: 14,

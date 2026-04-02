@@ -10,11 +10,13 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Palette, Spacing, Radius } from '@/constants/theme';
+import { useKeepAwake } from 'expo-keep-awake';
+import { Audio } from 'expo-av';
 
 const { width: SW } = Dimensions.get('window');
 const CIRCLE_SIZE = SW * 0.72;
 const SESSION_OPTIONS = [
-  { label: '15 min', seconds: 15 * 60 },
+  { label: '15 min', seconds: 15 * 2 },
   { label: '25 min', seconds: 25 * 60 },
   { label: '45 min', seconds: 45 * 60 },
 ];
@@ -112,16 +114,72 @@ const ring = StyleSheet.create({
 export default function FocusScreen({
   onSessionComplete,
 }: {
-  onSessionComplete?: (xpEarned: number) => void;
+  onSessionComplete?: (minutesSpent: number, xpEarned: number) => void;
 }) {
+  useKeepAwake();
+  
   const [selectedIdx, setSelectedIdx] = useState(1); // default 25 min
   const [timeLeft, setTimeLeft] = useState(SESSION_OPTIONS[1].seconds);
   const [totalTime, setTotalTime] = useState(SESSION_OPTIONS[1].seconds);
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const soundRef = useRef<Audio.Sound | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Audio setup
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAudio() {
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+        });
+        const { sound } = await Audio.Sound.createAsync(
+          require('../assets/Music/Main track feep focus 1.mp3'),
+          { shouldPlay: false, isLooping: true, isMuted }
+        );
+        if (isMounted) {
+          soundRef.current = sound;
+          if (isRunning) sound.playAsync();
+        } else {
+          sound.unloadAsync();
+        }
+      } catch (e) {
+        console.warn('Failed to load audio', e);
+      }
+    }
+    loadAudio();
+
+    return () => {
+      isMounted = false;
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+    };
+  }, []);
+
+  const toggleMute = () => {
+    setIsMuted((prev) => {
+      const next = !prev;
+      if (soundRef.current) {
+        soundRef.current.setIsMutedAsync(next);
+      }
+      return next;
+    });
+  };
+
+  // Play / Pause music based on state
+  useEffect(() => {
+    if (isRunning) {
+      soundRef.current?.playAsync();
+    } else {
+      soundRef.current?.pauseAsync();
+    }
+  }, [isRunning]);
 
   // Pulse animation when running
   useEffect(() => {
@@ -158,7 +216,8 @@ export default function FocusScreen({
             clearInterval(intervalRef.current!);
             setIsRunning(false);
             setIsComplete(true);
-            onSessionComplete?.(50);
+            const mins = Math.round(totalTime / 60);
+            onSessionComplete?.(mins, mins * 2);
             return 0;
           }
           return t - 1;
@@ -311,8 +370,15 @@ export default function FocusScreen({
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Spacer for symmetry */}
-          <View style={styles.secondaryBtn} />
+          {/* Mute toggle */}
+          <TouchableOpacity
+            style={styles.secondaryBtn}
+            onPress={toggleMute}
+            accessibilityRole="button"
+            accessibilityLabel={isMuted ? "Unmute music" : "Mute music"}
+          >
+            <Text style={styles.secondaryBtnText}>{isMuted ? '🔇' : '🔊'}</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
