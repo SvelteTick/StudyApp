@@ -1,53 +1,105 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Study App – Design Tokens
+ * Dark-first gamified study app color palette
  */
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// ─── Brand Palette ──────────────────────────────────────────────────────────
+export const Palette = {
+  // Primary purple-to-blue gradient family
+  primary:    '#7C3AED', // vibrant violet
+  primaryMid: '#6D28D9',
+  primaryDark:'#4C1D95',
+
+  // Accent – warm amber / gold (XP, streaks, rewards)
+  accent:     '#F59E0B',
+  accentDark: '#D97706',
+  accentGlow: '#FCD34D',
+
+  // Success green
+  success:    '#10B981',
+  successDark:'#059669',
+
+  // Danger / destructive
+  danger:     '#EF4444',
+
+  // Surfaces (dark-mode-first)
+  bg:         '#0F0E17',   // deepest background
+  surface:    '#1A1828',   // cards / elevated surfaces
+  surfaceAlt: '#231F35',   // slightly lighter surface
+  border:     '#2E2A45',   // subtle borders
+
+  // Text
+  textPrimary:   '#F0EEFF',
+  textSecondary: '#9B97B8',
+  textMuted:     '#5D5880',
+
+  // Streak fire color
+  fire:       '#FF6B35',
+  fireGlow:   '#FF9A5C',
+};
+
+// ─── Legacy Colors (kept for existing component compatibility) ───────────────
+const tintColorLight = Palette.primary;
+const tintColorDark  = Palette.accentGlow;
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
+    text:            '#11181C',
+    background:      '#fff',
+    tint:            tintColorLight,
+    icon:            '#687076',
+    tabIconDefault:  '#687076',
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
+    text:            Palette.textPrimary,
+    background:      Palette.bg,
+    tint:            tintColorDark,
+    icon:            Palette.textSecondary,
+    tabIconDefault:  Palette.textSecondary,
     tabIconSelected: tintColorDark,
   },
 };
 
+// ─── Typography ─────────────────────────────────────────────────────────────
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
+    sans:    'system-ui',
+    serif:   'ui-serif',
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+    mono:    'ui-monospace',
   },
   default: {
-    sans: 'normal',
-    serif: 'serif',
+    sans:    'normal',
+    serif:   'serif',
     rounded: 'normal',
-    mono: 'monospace',
+    mono:    'monospace',
   },
   web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
+    sans:    "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    serif:   "Georgia, 'Times New Roman', serif",
     rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+    mono:    "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
   },
 });
+
+// ─── Spacing ─────────────────────────────────────────────────────────────────
+export const Spacing = {
+  xs:  4,
+  sm:  8,
+  md:  16,
+  lg:  24,
+  xl:  32,
+  xxl: 48,
+};
+
+// ─── Border Radius ───────────────────────────────────────────────────────────
+export const Radius = {
+  sm:  8,
+  md:  12,
+  lg:  16,
+  xl:  24,
+  full: 999,
+};
