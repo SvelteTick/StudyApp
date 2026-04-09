@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Animated,
   StatusBar,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Palette, Spacing, Radius } from '@/constants/theme';
@@ -93,6 +94,7 @@ function XPRow({ item }: { item: XPEntry }) {
 export default function RewardScreen({ userData }: { userData: UserData }) {
   const { progress } = userData;
   const totalXP = progress.totalXPEarned;
+  const [isBadgesModalOpen, setIsBadgesModalOpen] = useState(false);
 
   return (
     <View style={styles.root}>
@@ -142,11 +144,32 @@ export default function RewardScreen({ userData }: { userData: UserData }) {
           </Text>
         </View>
 
-        <View style={styles.badgeGrid}>
-          {progress.badges.map((badge, idx) => (
-            <BadgeCard key={badge.id} badge={badge} delay={idx * 80} />
-          ))}
-        </View>
+        <TouchableOpacity 
+          style={styles.viewBadgesBtn} 
+          onPress={() => setIsBadgesModalOpen(true)}
+        >
+          <Text style={styles.viewBadgesBtnText}>View All Badges ({progress.badges.length})</Text>
+        </TouchableOpacity>
+
+        <Modal visible={isBadgesModalOpen} animationType="slide" transparent={true} onRequestClose={() => setIsBadgesModalOpen(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>All Badges</Text>
+                <TouchableOpacity onPress={() => setIsBadgesModalOpen(false)}>
+                  <Text style={styles.closeBtn}>Close</Text>
+                </TouchableOpacity>
+              </View>
+              <ScrollView contentContainerStyle={styles.badgeGrid} showsVerticalScrollIndicator={false}>
+                {progress.badges.map((badge, idx) => (
+                  <BadgeCard key={badge.id} badge={badge} delay={idx * 30} />
+                ))}
+                {/* Scroll Bottom buffer */}
+                <View style={{height: 48, width: '100%'}} />
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
 
         {/* ── XP History ── */}
         <View style={styles.section}>
@@ -285,6 +308,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: 4,
     minHeight: 130,
+    flex: 1,
   },
   badgeEmoji: {
     fontSize: 28,
@@ -371,5 +395,47 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: Palette.border,
     marginLeft: 26,
+  },
+  viewBadgesBtn: {
+    backgroundColor: Palette.surfaceAlt,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+    marginTop: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Palette.border,
+  },
+  viewBadgesBtnText: {
+    color: Palette.textPrimary,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Palette.bg,
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    height: '85%',
+    padding: Spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Spacing.lg,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+  },
+  closeBtn: {
+    color: Palette.primary,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

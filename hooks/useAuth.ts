@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { createDefaultUserData, UserData } from './useUserProgress';
 
 export type AuthState =
@@ -7,37 +8,67 @@ export type AuthState =
 
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({ status: 'unauthenticated' });
+  const [loading, setLoading] = useState(true);
 
-  const login = useCallback((name: string, email: string, _password: string): Promise<void> => {
-    // TODO: swap with real API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const userData = createDefaultUserData(name, email);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        const name = session.user.user_metadata?.full_name || 'User';
+        const userData = createDefaultUserData(session.user.id, name, session.user.email || '');
         setAuthState({ status: 'authenticated', userData });
-        resolve();
-      }, 800);
+      }
+      setLoading(false);
     });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        const name = session.user.user_metadata?.full_name || 'User';
+        const userData = createDefaultUserData(session.user.id, name, session.user.email || '');
+        setAuthState({ status: 'authenticated', userData });
+      } else {
+        setAuthState({ status: 'unauthenticated' });
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const signup = useCallback((name: string, email: string, _password: string): Promise<void> => {
-    // TODO: swap with real API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const userData = createDefaultUserData(name, email);
-        setAuthState({ status: 'authenticated', userData });
-        resolve();
-      }, 1000);
+  const login = useCallback(async (name: string, email: string, password: string): Promise<void> => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
     });
+
+    if (error) {
+      throw new Error(error.message);
+    }
   }, []);
 
-  const logout = useCallback(() => {
-    setAuthState({ status: 'unauthenticated' });
+  const signup = useCallback(async (name: string, email: string, password: string): Promise<void> => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: name,
+        },
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
   }, []);
 
   return {
     authState,
     isAuthenticated: authState.status === 'authenticated',
     userData: authState.status === 'authenticated' ? authState.userData : null,
+    loading,
     login,
     signup,
     logout,

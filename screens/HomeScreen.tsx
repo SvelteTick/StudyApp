@@ -1,19 +1,19 @@
-import React, { useRef, useEffect } from 'react';
+import { Palette, Radius, Spacing } from "@/constants/theme";
+import type { UserData } from "@/hooks/useUserProgress";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useEffect, useRef } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Animated,
   Dimensions,
+  ScrollView,
   StatusBar,
-} from 'react-native';
-import { Palette, Spacing, Radius } from '@/constants/theme';
-import { LinearGradient } from 'expo-linear-gradient';
-import type { UserData } from '@/hooks/useUserProgress';
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ function XPProgressBar({ current, max }: { current: number; max: number }) {
           {
             width: animWidth.interpolate({
               inputRange: [0, 1],
-              outputRange: ['0%', '100%'],
+              outputRange: ["0%", "100%"],
             }),
           },
         ]}
@@ -47,22 +47,13 @@ function XPProgressBar({ current, max }: { current: number; max: number }) {
   );
 }
 
-function GoalProgressDots({
-  done,
-  total,
-}: {
-  done: number;
-  total: number;
-}) {
+function GoalProgressDots({ done, total }: { done: number; total: number }) {
   return (
     <View style={styles.dotsRow}>
       {Array.from({ length: total }).map((_, i) => (
         <View
           key={i}
-          style={[
-            styles.dot,
-            i < done ? styles.dotFilled : styles.dotEmpty,
-          ]}
+          style={[styles.dot, i < done ? styles.dotFilled : styles.dotEmpty]}
         />
       ))}
     </View>
@@ -76,7 +67,11 @@ interface Props {
   userData: UserData;
 }
 
-export default function HomeScreen({ onStartSession, onLogout, userData }: Props) {
+export default function HomeScreen({
+  onStartSession,
+  onLogout,
+  userData,
+}: Props) {
   const { profile, progress } = userData;
   const buttonScale = useRef(new Animated.Value(1)).current;
 
@@ -96,7 +91,9 @@ export default function HomeScreen({ onStartSession, onLogout, userData }: Props
     }).start();
   };
 
-  const xpPercent = Math.round((progress.currentXP / progress.nextLevelXP) * 100);
+  const xpPercent = Math.round(
+    (progress.currentXP / progress.nextLevelXP) * 100,
+  );
 
   return (
     <View style={styles.root}>
@@ -121,7 +118,11 @@ export default function HomeScreen({ onStartSession, onLogout, userData }: Props
             <Text style={styles.greetingLabel}>Good morning,</Text>
             <Text style={styles.greetingName}>{profile.name} 👋</Text>
           </View>
-          <TouchableOpacity onPress={onLogout} style={styles.logoutBtn} accessibilityLabel="Logout">
+          <TouchableOpacity
+            onPress={onLogout}
+            style={styles.logoutBtn}
+            accessibilityLabel="Logout"
+          >
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
@@ -139,7 +140,7 @@ export default function HomeScreen({ onStartSession, onLogout, userData }: Props
             accessibilityLabel="Start Focus Session"
           >
             <LinearGradient
-              colors={[Palette.primary, '#A855F7', Palette.primaryDark]}
+              colors={[Palette.primary, "#A855F7", Palette.primaryDark]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.startButton}
@@ -163,7 +164,7 @@ export default function HomeScreen({ onStartSession, onLogout, userData }: Props
             <View>
               <Text style={styles.cardLabel}>Experience Points</Text>
               <Text style={styles.xpValue}>
-                {progress.currentXP}{' '}
+                {progress.currentXP}{" "}
                 <Text style={styles.xpMax}>/ {progress.nextLevelXP} XP</Text>
               </Text>
             </View>
@@ -177,7 +178,7 @@ export default function HomeScreen({ onStartSession, onLogout, userData }: Props
             max={progress.nextLevelXP}
           />
           <Text style={styles.xpHint}>
-            {progress.nextLevelXP - progress.currentXP} XP to Level{' '}
+            {progress.nextLevelXP - progress.currentXP} XP to Level{" "}
             {progress.level + 1} ✨
           </Text>
         </View>
@@ -188,7 +189,7 @@ export default function HomeScreen({ onStartSession, onLogout, userData }: Props
         <View style={styles.row}>
           {/* 3. STREAK COUNTER */}
           <LinearGradient
-            colors={['#1E1520', '#2A1A1A']}
+            colors={["#1E1520", "#2A1A1A"]}
             style={[styles.card, styles.halfCard]}
           >
             <Text style={styles.cardLabel}>Current Streak</Text>
@@ -219,10 +220,7 @@ export default function HomeScreen({ onStartSession, onLogout, userData }: Props
         {/* ────────────────────────────────────────────────────────────────── */}
         {/* 5. DAILY GOAL CARD                                                 */}
         {/* ────────────────────────────────────────────────────────────────── */}
-        <LinearGradient
-          colors={['#0D2018', '#0F2820']}
-          style={styles.card}
-        >
+        <LinearGradient colors={["#0D2018", "#0F2820"]} style={styles.card}>
           <View style={styles.goalHeader}>
             <View>
               <Text style={styles.cardLabel}>Daily Goal</Text>
@@ -232,7 +230,8 @@ export default function HomeScreen({ onStartSession, onLogout, userData }: Props
             </View>
             <View style={styles.goalCountBadge}>
               <Text style={styles.goalCountText}>
-                {progress.sessionsDoneToday}/{progress.dailyGoal}
+                {Math.min(progress.sessionsDoneToday, progress.dailyGoal)}/
+                {progress.dailyGoal}
               </Text>
             </View>
           </View>
@@ -243,17 +242,15 @@ export default function HomeScreen({ onStartSession, onLogout, userData }: Props
           />
 
           <View style={styles.goalFooter}>
-            <Text style={styles.goalBonusText}>
-              🎁 Bonus XP on completion!
-            </Text>
+            <Text style={styles.goalBonusText}>🎁 Bonus XP on completion!</Text>
             {progress.sessionsDoneToday >= progress.dailyGoal ? (
               <Text style={styles.goalCompleted}>✅ Goal Reached!</Text>
             ) : (
               <Text style={styles.goalRemaining}>
                 {progress.dailyGoal - progress.sessionsDoneToday} session
                 {progress.dailyGoal - progress.sessionsDoneToday !== 1
-                  ? 's'
-                  : ''}{' '}
+                  ? "s"
+                  : ""}{" "}
                 left
               </Text>
             )}
@@ -275,7 +272,7 @@ const styles = StyleSheet.create({
   },
 
   headerGradient: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -294,26 +291,26 @@ const styles = StyleSheet.create({
 
   // ── Header & Greeting ──
   headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: Spacing.xs,
   },
   greeting: {
     gap: 2,
   },
   logoutBtn: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: "rgba(255,255,255,0.1)",
     paddingHorizontal: Spacing.md,
     paddingVertical: 8,
     borderRadius: Radius.full,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: "rgba(255,255,255,0.15)",
   },
   logoutText: {
-    color: '#FFF',
+    color: "#FFF",
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   greetingLabel: {
     fontSize: 14,
@@ -322,7 +319,7 @@ const styles = StyleSheet.create({
   },
   greetingName: {
     fontSize: 28,
-    fontWeight: '700',
+    fontWeight: "700",
     color: Palette.textPrimary,
     letterSpacing: -0.5,
   },
@@ -331,8 +328,8 @@ const styles = StyleSheet.create({
   startButton: {
     borderRadius: Radius.xl,
     padding: Spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: Spacing.sm,
     shadowColor: Palette.primary,
     shadowOffset: { width: 0, height: 12 },
@@ -346,22 +343,22 @@ const styles = StyleSheet.create({
   },
   startButtonLabel: {
     fontSize: 22,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontWeight: "800",
+    color: "#FFFFFF",
     letterSpacing: -0.5,
-    textAlign: 'center',
+    textAlign: "center",
   },
   sessionBadge: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: "rgba(255,255,255,0.2)",
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: "rgba(255,255,255,0.3)",
   },
   sessionBadgeText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: "#FFFFFF",
+    fontWeight: "600",
     fontSize: 13,
     letterSpacing: 0.5,
   },
@@ -377,27 +374,27 @@ const styles = StyleSheet.create({
   },
   cardLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Palette.textMuted,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 1.2,
   },
 
   // ── XP Card ──
   xpHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   xpValue: {
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: "800",
     color: Palette.textPrimary,
     marginTop: 2,
   },
   xpMax: {
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: "500",
     color: Palette.textSecondary,
   },
   levelBadge: {
@@ -405,21 +402,21 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
     borderColor: Palette.primary,
     minWidth: 60,
   },
   levelBadgeLabel: {
     fontSize: 9,
-    fontWeight: '700',
+    fontWeight: "700",
     color: Palette.primary,
     letterSpacing: 1.5,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   levelBadgeValue: {
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: "900",
     color: Palette.accentGlow,
     lineHeight: 26,
   },
@@ -427,10 +424,10 @@ const styles = StyleSheet.create({
     height: 8,
     backgroundColor: Palette.surfaceAlt,
     borderRadius: Radius.full,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   xpBarFill: {
-    height: '100%',
+    height: "100%",
     borderRadius: Radius.full,
     backgroundColor: Palette.primary,
     shadowColor: Palette.primary,
@@ -441,12 +438,12 @@ const styles = StyleSheet.create({
   xpHint: {
     fontSize: 12,
     color: Palette.textSecondary,
-    textAlign: 'right',
+    textAlign: "right",
   },
 
   // ── Row layout ──
   row: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: Spacing.md,
   },
   halfCard: {
@@ -455,8 +452,8 @@ const styles = StyleSheet.create({
 
   // ── Streak Card ──
   streakRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+    flexDirection: "row",
+    alignItems: "baseline",
     gap: Spacing.xs,
     marginTop: 2,
   },
@@ -465,7 +462,7 @@ const styles = StyleSheet.create({
   },
   streakNumber: {
     fontSize: 38,
-    fontWeight: '900',
+    fontWeight: "900",
     color: Palette.fire,
     lineHeight: 44,
   },
@@ -477,14 +474,14 @@ const styles = StyleSheet.create({
   streakMessage: {
     fontSize: 12,
     color: Palette.fireGlow,
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 4,
   },
 
   // ── Today Card ──
   todaySessionsNum: {
     fontSize: 38,
-    fontWeight: '900',
+    fontWeight: "900",
     color: Palette.success,
     lineHeight: 44,
     marginTop: 2,
@@ -495,8 +492,8 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   todayMinutesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     marginTop: 4,
   },
@@ -506,37 +503,37 @@ const styles = StyleSheet.create({
   todayMinutes: {
     fontSize: 13,
     color: Palette.textPrimary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 
   // ── Daily Goal Card ──
   goalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
   goalTitle: {
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: "700",
     color: Palette.textPrimary,
     marginTop: 4,
     maxWidth: SCREEN_WIDTH * 0.55,
   },
   goalCountBadge: {
-    backgroundColor: Palette.success + '22',
+    backgroundColor: Palette.success + "22",
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderWidth: 1,
-    borderColor: Palette.success + '55',
+    borderColor: Palette.success + "55",
   },
   goalCountText: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: "800",
     color: Palette.success,
   },
   dotsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: Spacing.sm,
   },
   dot: {
@@ -558,14 +555,14 @@ const styles = StyleSheet.create({
     borderColor: Palette.border,
   },
   goalFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   goalBonusText: {
     fontSize: 12,
     color: Palette.accent,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   goalRemaining: {
     fontSize: 12,
@@ -574,6 +571,6 @@ const styles = StyleSheet.create({
   goalCompleted: {
     fontSize: 12,
     color: Palette.success,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });

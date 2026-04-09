@@ -3,6 +3,8 @@ import { useAuth } from './useAuth';
 import { useUserProgress } from './useUserProgress';
 import type { UserData } from './useUserProgress';
 import LoginScreen from '@/screens/LoginScreen';
+import { View, ActivityIndicator } from 'react-native';
+import { Palette } from '@/constants/theme';
 
 const AuthContext = createContext<ReturnType<typeof useAuth> | null>(null);
 const ProgressContext = createContext<ReturnType<typeof useUserProgress> | null>(null);
@@ -37,6 +39,14 @@ function AuthenticatedApp({
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const authAPI = useAuth();
+
+  if (authAPI.loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Palette.bg }}>
+        <ActivityIndicator size="large" color={Palette.primary} />
+      </View>
+    );
+  }
 
   return (
     <AuthContext.Provider value={authAPI}>

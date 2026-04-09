@@ -7,7 +7,11 @@ import {
   Animated,
   StatusBar,
   Dimensions,
+  Modal,
+  AppState,
+  BackHandler,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Palette, Spacing, Radius } from '@/constants/theme';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -113,8 +117,10 @@ const ring = StyleSheet.create({
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function FocusScreen({
   onSessionComplete,
+  onRunningChange,
 }: {
   onSessionComplete?: (minutesSpent: number, xpEarned: number) => void;
+  onRunningChange?: (isRunning: boolean) => void;
 }) {
   useKeepAwake();
   
@@ -124,6 +130,10 @@ export default function FocusScreen({
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [showQuitWarning, setShowQuitWarning] = useState(false);
+  const [showFocusBroken, setShowFocusBroken] = useState(false);
+
+  const appState = useRef(AppState.currentState);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -138,9 +148,14 @@ export default function FocusScreen({
           playsInSilentModeIOS: true,
           staysActiveInBackground: true,
         });
+
+        const savedMute = await AsyncStorage.getItem('@studyapp_is_muted');
+        const initialMute = savedMute === 'true';
+        if (isMounted && initialMute) setIsMuted(true);
+
         const { sound } = await Audio.Sound.createAsync(
           require('../assets/Music/Main track feep focus 1.mp3'),
-          { shouldPlay: false, isLooping: true, isMuted }
+          { shouldPlay: false, isLooping: true, isMuted: initialMute }
         );
         if (isMounted) {
           soundRef.current = sound;
@@ -165,6 +180,7 @@ export default function FocusScreen({
   const toggleMute = () => {
     setIsMuted((prev) => {
       const next = !prev;
+      AsyncStorage.setItem('@studyapp_is_muted', String(next)).catch(() => {});
       if (soundRef.current) {
         soundRef.current.setIsMutedAsync(next);
       }
@@ -211,17 +227,7 @@ export default function FocusScreen({
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
-        setTimeLeft((t) => {
-          if (t <= 1) {
-            clearInterval(intervalRef.current!);
-            setIsRunning(false);
-            setIsComplete(true);
-            const mins = Math.round(totalTime / 60);
-            onSessionComplete?.(mins, mins * 2);
-            return 0;
-          }
-          return t - 1;
-        });
+        setTimeLeft((t) => (t > 0 ? t - 1 : 0));
       }, 1000);
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -230,6 +236,56 @@ export default function FocusScreen({
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [isRunning]);
+
+  // Completion effect
+  useEffect(() => {
+    if (isRunning && timeLeft === 0) {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      setIsRunning(false);
+      setIsComplete(true);
+      const mins = Math.round(totalTime / 60);
+      onSessionComplete?.(mins, mins * 2);
+    }
+  }, [timeLeft, isRunning, totalTime, onSessionComplete]);
+
+  // ─── Deep Focus Enforcements ───
+
+  // 1. Notify Parent of Running State (To Hide Tab Bar)
+  useEffect(() => {
+    onRunningChange?.(isRunning);
+  }, [isRunning, onRunningChange]);
+
+  // 2. Back Button Intercept (Android)
+  useEffect(() => {
+    const onBackPress = () => {
+      if (isRunning) {
+        setShowQuitWarning(true);
+        return true; 
+      }
+      return false;
+    };
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [isRunning]);
+
+  // 3. AppState focus trap
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (
+        isRunning &&
+        appState.current.match(/active/) &&
+        nextAppState.match(/inactive|background/)
+      ) {
+        setIsRunning(false);
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        setTimeLeft(SESSION_OPTIONS[selectedIdx].seconds);
+        setIsComplete(false);
+        setShowFocusBroken(true);
+      }
+      appState.current = nextAppState;
+    });
+    return () => subscription.remove();
+  }, [isRunning, selectedIdx]);
 
   const selectSession = useCallback(
     (idx: number) => {
@@ -250,13 +306,22 @@ export default function FocusScreen({
       setIsComplete(false);
       return;
     }
-    setIsRunning((r) => !r);
+    if (isRunning) {
+      setShowQuitWarning(true);
+      return;
+    }
+    setIsRunning(true);
   };
 
-  const handleReset = () => {
+  const confirmQuit = () => {
+    setShowQuitWarning(false);
     setIsRunning(false);
-    setIsComplete(false);
     setTimeLeft(SESSION_OPTIONS[selectedIdx].seconds);
+    setIsComplete(false);
+  };
+
+  const cancelQuit = () => {
+    setShowQuitWarning(false);
   };
 
   const progress = 1 - timeLeft / totalTime;
@@ -333,15 +398,6 @@ export default function FocusScreen({
 
         {/* Controls */}
         <View style={styles.controls}>
-          {/* Reset */}
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            onPress={handleReset}
-            accessibilityRole="button"
-            accessibilityLabel="Reset timer"
-          >
-            <Text style={styles.secondaryBtnText}>↺</Text>
-          </TouchableOpacity>
 
           {/* Start / Pause */}
           <TouchableOpacity
@@ -365,7 +421,7 @@ export default function FocusScreen({
               end={{ x: 1, y: 1 }}
             >
               <Text style={styles.mainBtnText}>
-                {isComplete ? 'New Session' : isRunning ? 'Pause' : 'Start'}
+                {isComplete ? 'New Session' : isRunning ? 'Give Up 🏳️' : 'Start Focus'}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -381,6 +437,43 @@ export default function FocusScreen({
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* ── Quit Warning Modal ── */}
+      <Modal visible={showQuitWarning} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+           <View style={styles.modalContent}>
+             <Text style={styles.modalSadEmoji}>🥺</Text>
+             <Text style={styles.modalTitle}>Give Up?</Text>
+             <Text style={styles.modalBody}>
+               Are you sure you want to stop? You will lose everything you've worked for this session!
+             </Text>
+             <View style={styles.modalBtns}>
+               <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={cancelQuit}>
+                 <Text style={styles.modalBtnPrimaryText}>Keep Going!</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.modalBtn} onPress={confirmQuit}>
+                 <Text style={styles.modalBtnDestructiveText}>Yes, Quit</Text>
+               </TouchableOpacity>
+             </View>
+           </View>
+        </View>
+      </Modal>
+
+      {/* ── Focus Broken Modal ── */}
+      <Modal visible={showFocusBroken} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+           <View style={styles.modalContent}>
+             <Text style={styles.modalSadEmoji}>💔</Text>
+             <Text style={styles.modalTitle}>Focus Broken!</Text>
+             <Text style={styles.modalBody}>
+               You left the app while a timer was running. Your session has been destroyed. Stay focused next time!
+             </Text>
+             <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={() => setShowFocusBroken(false)}>
+               <Text style={styles.modalBtnPrimaryText}>I understand</Text>
+             </TouchableOpacity>
+           </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -522,5 +615,63 @@ const styles = StyleSheet.create({
   secondaryBtnText: {
     fontSize: 22,
     color: Palette.textSecondary,
+  },
+  
+  // ── Modals ──
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  modalContent: {
+    backgroundColor: Palette.surface,
+    padding: Spacing.xl,
+    borderRadius: Radius.xl,
+    alignItems: 'center',
+    width: '100%',
+    borderWidth: 1,
+    borderColor: Palette.border,
+  },
+  modalSadEmoji: {
+    fontSize: 55,
+    marginBottom: Spacing.sm,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Palette.textPrimary,
+    marginBottom: Spacing.sm,
+  },
+  modalBody: {
+    fontSize: 15,
+    color: Palette.textSecondary,
+    textAlign: 'center',
+    marginBottom: Spacing.xl,
+    lineHeight: 22,
+  },
+  modalBtns: {
+    width: '100%',
+    gap: Spacing.sm,
+  },
+  modalBtn: {
+    width: '100%',
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.lg,
+    alignItems: 'center',
+  },
+  modalBtnPrimary: {
+    backgroundColor: Palette.primary,
+  },
+  modalBtnPrimaryText: {
+    color: '#FFF',
+    fontWeight: '800',
+    fontSize: 16,
+  },
+  modalBtnDestructiveText: {
+    color: Palette.fire,
+    fontWeight: '700',
+    fontSize: 16,
   },
 });
