@@ -145,6 +145,19 @@ export function useUserProgress(initialData: UserData) {
             ...b,
             unlocked: b.unlocked || (progressRow.unlocked_badges || []).includes(b.id)
           }));
+
+          const now = new Date();
+          const lastActiveDateInDB = progressRow.last_active_date ? new Date(progressRow.last_active_date) : now;
+          const isNewDay = now.toDateString() !== lastActiveDateInDB.toDateString();
+
+          const yesterday = new Date(now);
+          yesterday.setDate(yesterday.getDate() - 1);
+          const isStreakBroken = isNewDay && lastActiveDateInDB.toDateString() !== yesterday.toDateString();
+
+          const displayedSessionsToday = isNewDay ? 0 : progressRow.sessions_done_today;
+          const displayedMinutesToday = isNewDay ? 0 : progressRow.minutes_today;
+          const displayedStreak = isStreakBroken ? 0 : progressRow.streak_days;
+
           return {
             ...prev,
             progress: {
@@ -153,12 +166,13 @@ export function useUserProgress(initialData: UserData) {
               currentXP: progressRow.current_xp,
               nextLevelXP: xpForLevel(progressRow.level + 1),
               totalXPEarned: progressRow.total_xp_earned,
-              streakDays: progressRow.streak_days,
-              sessionsDoneToday: progressRow.sessions_done_today,
-              minutesToday: progressRow.minutes_today,
+              streakDays: displayedStreak,
+              sessionsDoneToday: displayedSessionsToday,
+              minutesToday: displayedMinutesToday,
               dailyGoal: progressRow.daily_goal,
               preferredSessionType: progressRow.preferred_session_type,
               badges: updatedBadges,
+              lastActiveDate: progressRow.last_active_date || new Date().toISOString(),
             }
           };
         });

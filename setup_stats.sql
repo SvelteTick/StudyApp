@@ -2,8 +2,8 @@
 -- STATS & PROGRESS TRACKING
 -- ==========================================
 
--- Create user_progress table
-create table user_progress (
+-- Create user_progress table (safe to re-run)
+create table if not exists user_progress (
   id uuid references auth.users not null primary key,
   level integer default 1 not null,
   current_xp integer default 0 not null,
@@ -17,14 +17,16 @@ create table user_progress (
   unlocked_badges text[] default '{}'::text[] not null
 );
 
--- Turn on Row Level Security (RLS)
 alter table user_progress enable row level security;
 
--- Leaderboard policy: Anyone logged in can view everyone else's progress
+-- Drop and recreate policies so re-running is safe
+drop policy if exists "User progress is viewable by everyone for leaderboards." on user_progress;
+drop policy if exists "Users can update their own progress." on user_progress;
+drop policy if exists "Users can insert their own progress." on user_progress;
+
 create policy "User progress is viewable by everyone for leaderboards."
   on user_progress for select using (true);
 
--- Users can only modify their own progress
 create policy "Users can update their own progress."
   on user_progress for update using (auth.uid() = id);
 
@@ -36,8 +38,7 @@ create policy "Users can insert their own progress."
 -- XP HISTORY LOGS
 -- ==========================================
 
--- Table specifically for tracking events over time
-create table xp_history (
+create table if not exists xp_history (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users not null,
   label text not null,
@@ -47,7 +48,9 @@ create table xp_history (
 
 alter table xp_history enable row level security;
 
--- Users can only see and add their own XP history
+drop policy if exists "Users can view own xp history." on xp_history;
+drop policy if exists "Users can insert own xp history." on xp_history;
+
 create policy "Users can view own xp history."
   on xp_history for select using (auth.uid() = user_id);
 
@@ -59,7 +62,7 @@ create policy "Users can insert own xp history."
 -- FRIENDS SYSTEM
 -- ==========================================
 
-create table friendships (
+create table if not exists friendships (
   id uuid default gen_random_uuid() primary key,
   sender_id uuid references auth.users not null,
   receiver_id uuid references auth.users not null,
@@ -71,50 +74,49 @@ create table friendships (
 
 alter table friendships enable row level security;
 
--- Users can see friendships they are a part of
-create policy "Users can view their friendships." 
+drop policy if exists "Users can view their friendships." on friendships;
+drop policy if exists "Users can insert a friend request." on friendships;
+drop policy if exists "Receivers can update the friendship status." on friendships;
+drop policy if exists "Users can delete their friendships." on friendships;
+
+create policy "Users can view their friendships."
   on friendships for select using (auth.uid() = sender_id or auth.uid() = receiver_id);
 
--- Users can initiate a request
-create policy "Users can insert a friend request." 
+create policy "Users can insert a friend request."
   on friendships for insert with check (auth.uid() = sender_id);
 
--- The receiver can update the status (accept/reject)
-create policy "Receivers can update the friendship status." 
+create policy "Receivers can update the friendship status."
   on friendships for update using (auth.uid() = receiver_id);
 
--- Either user can remove a friend
-create policy "Users can delete their friendships." 
+create policy "Users can delete their friendships."
   on friendships for delete using (auth.uid() = sender_id or auth.uid() = receiver_id);
 
 
 -- ==========================================
--- TRIGGERS
+-- TRIGGER: Auto-init progress on sign-up
 -- ==========================================
 
--- Auto-initialize Progress on Account Creation
--- We recreate the old handle_new_user function to insert into *both* profiles and user_progress.
 create or replace function public.handle_new_user()
 returns trigger
 set search_path = ''
 as $$
 begin
-  -- 1) Create Profile metadata
+  -- 1) Create Profile metadata row
   insert into public.profiles (id, full_name, avatar_url)
-  values (new.id, new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'avatar_url');
-  
+  values (new.id, new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'avatar_url')
+  on conflict (id) do nothing;
+
   -- 2) Create User Progress defaults
   insert into public.user_progress (id)
-  values (new.id);
-  
+  values (new.id)
+  on conflict (id) do nothing;
+
   return new;
 end;
 $$ language plpgsql security definer;
 
--- If you already had an `on_auth_user_created` trigger, executing this `CREATE OR REPLACE FUNCTION` overwrote the logic
--- and it continues to use the same trigger. If you haven't run setup_database.sql yet, it creates the trigger below.
+-- Recreate trigger (drop first so re-running is safe)
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
-

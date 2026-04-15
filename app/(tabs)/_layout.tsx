@@ -54,6 +54,24 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="leaderboard"
+        options={{
+          title: 'Ranks',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="chart.bar.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="friends"
+        options={{
+          title: 'Friends',
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={26} name="person.2.fill" color={color} />
+          ),
+        }}
+      />
       {/* Hide the old explore tab */}
       <Tabs.Screen
         name="explore"
