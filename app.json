@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./assets/images/ios/icons/ios-icon-1024.png"
     },
     "android": {
       "adaptiveIcon": {
@@ -33,12 +34,14 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#0F0E17",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#0F0E17"
           }
         }
-      ]
+      ],
+      "expo-web-browser",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

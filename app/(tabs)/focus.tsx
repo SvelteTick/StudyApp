@@ -22,8 +22,8 @@ export default function FocusTab() {
           }
         });
       }}
-      onSessionComplete={(mins, xp) => {
-        completeSession(mins, xp);
+      onSessionComplete={(mins) => {
+        completeSession(mins);
         router.push('/(tabs)/rewards');
       }} 
     />

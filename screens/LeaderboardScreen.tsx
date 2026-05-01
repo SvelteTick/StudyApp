@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Palette, Spacing, Radius } from '@/constants/theme';
 import { useLeaderboard, type LeaderboardEntry } from '@/hooks/useLeaderboard';
+import UserAvatar from '@/components/UserAvatar';
 
 // ─── Rank Medal ───────────────────────────────────────────────────────────────
 function rankMedal(rank: number): string {
@@ -40,9 +41,7 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
 
       {/* Avatar */}
       <View style={[styles.avatar, entry.isCurrentUser && styles.avatarHighlight]}>
-        <Text style={styles.avatarText}>
-          {entry.name.charAt(0).toUpperCase()}
-        </Text>
+        <UserAvatar avatarId={entry.avatarUrl} fallbackName={entry.name} size="sm" />
       </View>
 
       {/* Info */}

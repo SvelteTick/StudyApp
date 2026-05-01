@@ -64,6 +64,19 @@ export function useAuth() {
     await supabase.auth.signOut();
   }, []);
 
+  const updatePassword = useCallback(async (newPassword: string): Promise<void> => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw new Error(error.message);
+  }, []);
+
+  const deleteAccount = useCallback(async (): Promise<void> => {
+    // 1. Call the secure RPC function to delete own account
+    const { error } = await supabase.rpc('delete_own_account');
+    if (error) throw new Error(error.message);
+    // 2. Sign out locally
+    await supabase.auth.signOut();
+  }, []);
+
   return {
     authState,
     isAuthenticated: authState.status === 'authenticated',
@@ -72,5 +85,7 @@ export function useAuth() {
     login,
     signup,
     logout,
+    updatePassword,
+    deleteAccount,
   };
 }

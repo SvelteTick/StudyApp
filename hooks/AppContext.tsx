@@ -5,9 +5,11 @@ import type { UserData } from './useUserProgress';
 import LoginScreen from '@/screens/LoginScreen';
 import { View, ActivityIndicator } from 'react-native';
 import { Palette } from '@/constants/theme';
+import { useNotifications } from './useNotifications';
 
 const AuthContext = createContext<ReturnType<typeof useAuth> | null>(null);
 const ProgressContext = createContext<ReturnType<typeof useUserProgress> | null>(null);
+const NotificationsContext = createContext<ReturnType<typeof useNotifications> | null>(null);
 
 export function useAppAuth() {
   const context = useContext(AuthContext);
@@ -21,6 +23,12 @@ export function useAppProgress() {
   return context;
 }
 
+export function useAppNotifications() {
+  const context = useContext(NotificationsContext);
+  if (!context) throw new Error('useAppNotifications must be used within AppProvider');
+  return context;
+}
+
 function AuthenticatedApp({
   children,
   initialUserData,
@@ -29,10 +37,13 @@ function AuthenticatedApp({
   initialUserData: UserData;
 }) {
   const progressAPI = useUserProgress(initialUserData);
+  const notificationsAPI = useNotifications(initialUserData.profile.id);
 
   return (
     <ProgressContext.Provider value={progressAPI}>
-      {children}
+      <NotificationsContext.Provider value={notificationsAPI}>
+        {children}
+      </NotificationsContext.Provider>
     </ProgressContext.Provider>
   );
 }

@@ -102,12 +102,17 @@ export function useFriends(currentUserId: string) {
   // Search for a user by username to send a friend request
   const searchUser = useCallback(async (query: string) => {
     if (!query.trim()) return [];
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('id, full_name, avatar_url')
       .ilike('full_name', `%${query}%`)
       .neq('id', currentUserId)
       .limit(10);
+      
+    if (error) {
+      console.error('Error searching users:', error);
+    }
+    
     return (data || []) as { id: string; full_name: string; avatar_url?: string }[];
   }, [currentUserId]);
 

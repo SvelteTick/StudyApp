@@ -57,12 +57,13 @@ export default function TabLayout() {
       <Tabs.Screen
         name="leaderboard"
         options={{
-          title: 'Ranks',
+          title: "Leaderboard",
           tabBarIcon: ({ color }) => (
-            <IconSymbol size={26} name="chart.bar.fill" color={color} />
+            <IconSymbol size={28} name="chart.bar.fill" color={color} />
           ),
         }}
       />
+
       <Tabs.Screen
         name="friends"
         options={{

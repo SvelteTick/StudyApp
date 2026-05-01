@@ -4,7 +4,7 @@
 
 -- Create user_progress table (safe to re-run)
 create table if not exists user_progress (
-  id uuid references auth.users not null primary key,
+  id uuid references public.profiles(id) on delete cascade not null primary key,
   level integer default 1 not null,
   current_xp integer default 0 not null,
   total_xp_earned integer default 0 not null,

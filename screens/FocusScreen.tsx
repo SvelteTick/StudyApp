@@ -1,32 +1,33 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Palette, Radius, Spacing } from "@/constants/theme";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
+import { useKeepAwake } from "expo-keep-awake";
+import { LinearGradient } from "expo-linear-gradient";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useAppNotifications } from '@/hooks/AppContext';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   Animated,
-  StatusBar,
-  Dimensions,
-  Modal,
   AppState,
   BackHandler,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Palette, Spacing, Radius } from '@/constants/theme';
-import { useKeepAwake } from 'expo-keep-awake';
-import { Audio } from 'expo-av';
+  Dimensions,
+  Modal,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
-const { width: SW } = Dimensions.get('window');
+const { width: SW } = Dimensions.get("window");
 const CIRCLE_SIZE = SW * 0.72;
 const SESSION_OPTIONS = [
-  { label: '15 min', seconds: 15 * 2 },
-  { label: '25 min', seconds: 25 * 60 },
-  { label: '45 min', seconds: 45 * 60 },
+  { label: "15 min", seconds: 15 * 60 },
+  { label: "25 min", seconds: 25 * 60 },
+  { label: "45 min", seconds: 45 * 60 },
 ];
 
 function pad(n: number) {
-  return n.toString().padStart(2, '0');
+  return n.toString().padStart(2, "0");
 }
 
 function formatTime(seconds: number) {
@@ -60,7 +61,7 @@ function ProgressRing({
       <View style={ring.track} />
       {/* Filled ring via gradient overlay */}
       <LinearGradient
-        colors={[Palette.primary, '#A855F7', Palette.accent]}
+        colors={[Palette.primary, "#A855F7", Palette.accent]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
@@ -79,11 +80,11 @@ const ring = StyleSheet.create({
   outer: {
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   track: {
-    position: 'absolute',
+    position: "absolute",
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,
@@ -91,12 +92,12 @@ const ring = StyleSheet.create({
     borderColor: Palette.surfaceAlt,
   },
   fill: {
-    position: 'absolute',
+    position: "absolute",
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,
     borderWidth: 8,
-    borderColor: 'transparent',
+    borderColor: "transparent",
     // React Native doesn't support border gradients natively,
     // so we use a glow shadow effect instead
     shadowColor: Palette.primary,
@@ -109,8 +110,8 @@ const ring = StyleSheet.create({
     height: CIRCLE_SIZE - 32,
     borderRadius: (CIRCLE_SIZE - 32) / 2,
     backgroundColor: Palette.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 
@@ -119,11 +120,12 @@ export default function FocusScreen({
   onSessionComplete,
   onRunningChange,
 }: {
-  onSessionComplete?: (minutesSpent: number, xpEarned: number) => void;
+  onSessionComplete?: (minutesSpent: number) => void;
   onRunningChange?: (isRunning: boolean) => void;
 }) {
   useKeepAwake();
-  
+  const { scheduleLocalNotification } = useAppNotifications();
+
   const [selectedIdx, setSelectedIdx] = useState(1); // default 25 min
   const [timeLeft, setTimeLeft] = useState(SESSION_OPTIONS[1].seconds);
   const [totalTime, setTotalTime] = useState(SESSION_OPTIONS[1].seconds);
@@ -136,53 +138,49 @@ export default function FocusScreen({
   const appState = useRef(AppState.currentState);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Setup the player via hook (loads automatically)
+  const player = useAudioPlayer(require("../assets/Music/Main track feep focus 1.mp3"));
 
   // Audio setup
   useEffect(() => {
     let isMounted = true;
-    async function loadAudio() {
+    async function initAudio() {
       try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
+        await setAudioModeAsync({
+          playsInSilentMode: true,
+          shouldPlayInBackground: true,
         });
 
-        const savedMute = await AsyncStorage.getItem('@studyapp_is_muted');
-        const initialMute = savedMute === 'true';
+        const savedMute = await AsyncStorage.getItem("@studyapp_is_muted");
+        const initialMute = savedMute === "true";
         if (isMounted && initialMute) setIsMuted(true);
-
-        const { sound } = await Audio.Sound.createAsync(
-          require('../assets/Music/Main track feep focus 1.mp3'),
-          { shouldPlay: false, isLooping: true, isMuted: initialMute }
-        );
-        if (isMounted) {
-          soundRef.current = sound;
-          if (isRunning) sound.playAsync();
-        } else {
-          sound.unloadAsync();
-        }
       } catch (e) {
-        console.warn('Failed to load audio', e);
+        console.warn("Failed to init audio mode", e);
       }
     }
-    loadAudio();
+    initAudio();
 
     return () => {
       isMounted = false;
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-      }
     };
   }, []);
+
+  // Sync player properties
+  useEffect(() => {
+    if (player) {
+      player.loop = true;
+      player.muted = isMuted;
+    }
+  }, [player, isMuted]);
 
   const toggleMute = () => {
     setIsMuted((prev) => {
       const next = !prev;
-      AsyncStorage.setItem('@studyapp_is_muted', String(next)).catch(() => {});
-      if (soundRef.current) {
-        soundRef.current.setIsMutedAsync(next);
+      AsyncStorage.setItem("@studyapp_is_muted", String(next)).catch(() => {});
+      if (player) {
+        player.muted = next;
       }
       return next;
     });
@@ -191,11 +189,11 @@ export default function FocusScreen({
   // Play / Pause music based on state
   useEffect(() => {
     if (isRunning) {
-      soundRef.current?.playAsync();
+      player?.play();
     } else {
-      soundRef.current?.pauseAsync();
+      player?.pause();
     }
-  }, [isRunning]);
+  }, [isRunning, player]);
 
   // Pulse animation when running
   useEffect(() => {
@@ -212,7 +210,7 @@ export default function FocusScreen({
             duration: 1000,
             useNativeDriver: true,
           }),
-        ])
+        ]),
       ).start();
     } else {
       pulseAnim.stopAnimation();
@@ -244,9 +242,10 @@ export default function FocusScreen({
       setIsRunning(false);
       setIsComplete(true);
       const mins = Math.round(totalTime / 60);
-      onSessionComplete?.(mins, mins * 2);
+      onSessionComplete?.(mins);
+      scheduleLocalNotification('Focus Session Complete! 🎉', 'Great job! You earned some XP.', 1);
     }
-  }, [timeLeft, isRunning, totalTime, onSessionComplete]);
+  }, [timeLeft, isRunning, totalTime, onSessionComplete, scheduleLocalNotification]);
 
   // ─── Deep Focus Enforcements ───
 
@@ -260,17 +259,20 @@ export default function FocusScreen({
     const onBackPress = () => {
       if (isRunning) {
         setShowQuitWarning(true);
-        return true; 
+        return true;
       }
       return false;
     };
-    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      onBackPress,
+    );
     return () => subscription.remove();
   }, [isRunning]);
 
   // 3. AppState focus trap
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', nextAppState => {
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
       if (
         isRunning &&
         appState.current.match(/active/) &&
@@ -295,7 +297,7 @@ export default function FocusScreen({
       setTotalTime(SESSION_OPTIONS[idx].seconds);
       setIsComplete(false);
     },
-    [isRunning]
+    [isRunning],
   );
 
   const handleStartPause = () => {
@@ -331,7 +333,7 @@ export default function FocusScreen({
       <StatusBar barStyle="light-content" backgroundColor={Palette.bg} />
 
       <LinearGradient
-        colors={[Palette.primaryDark + 'AA', Palette.bg]}
+        colors={[Palette.primaryDark + "AA", Palette.bg]}
         style={styles.bgGradient}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 0.6 }}
@@ -342,10 +344,10 @@ export default function FocusScreen({
         <Text style={styles.title}>Focus Mode</Text>
         <Text style={styles.subtitle}>
           {isComplete
-            ? '🎉 Session complete!'
+            ? "🎉 Session complete!"
             : isRunning
-              ? '🔒 Stay focused...'
-              : 'Choose your session'}
+              ? "🔒 Stay focused..."
+              : "Choose your session"}
         </Text>
 
         {/* Session Type Selector */}
@@ -376,15 +378,12 @@ export default function FocusScreen({
 
         {/* Timer Ring */}
         <Animated.View
-          style={[
-            styles.ringWrapper,
-            { transform: [{ scale: pulseAnim }] },
-          ]}
+          style={[styles.ringWrapper, { transform: [{ scale: pulseAnim }] }]}
         >
           <ProgressRing progress={progress}>
             <Text style={styles.timerText}>{formatTime(timeLeft)}</Text>
             <Text style={styles.timerLabel}>
-              {isComplete ? 'Done! ✅' : isRunning ? 'remaining' : 'ready'}
+              {isComplete ? "Done! ✅" : isRunning ? "remaining" : "ready"}
             </Text>
           </ProgressRing>
         </Animated.View>
@@ -392,19 +391,19 @@ export default function FocusScreen({
         {/* XP Reward label */}
         <View style={styles.xpRewardBadge}>
           <Text style={styles.xpRewardText}>
-            +{SESSION_OPTIONS[selectedIdx].seconds / 60 * 2} XP on completion ⚡
+            +{(SESSION_OPTIONS[selectedIdx].seconds / 60) * 2} XP on completion
+            ⚡
           </Text>
         </View>
 
         {/* Controls */}
         <View style={styles.controls}>
-
           {/* Start / Pause */}
           <TouchableOpacity
             onPress={handleStartPause}
             accessibilityRole="button"
             accessibilityLabel={
-              isComplete ? 'Start new session' : isRunning ? 'Pause' : 'Start'
+              isComplete ? "Start new session" : isRunning ? "Pause" : "Start"
             }
             activeOpacity={0.85}
           >
@@ -421,7 +420,11 @@ export default function FocusScreen({
               end={{ x: 1, y: 1 }}
             >
               <Text style={styles.mainBtnText}>
-                {isComplete ? 'New Session' : isRunning ? 'Give Up 🏳️' : 'Start Focus'}
+                {isComplete
+                  ? "New Session"
+                  : isRunning
+                    ? "Give Up 🏳️"
+                    : "Start Focus"}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -433,7 +436,7 @@ export default function FocusScreen({
             accessibilityRole="button"
             accessibilityLabel={isMuted ? "Unmute music" : "Mute music"}
           >
-            <Text style={styles.secondaryBtnText}>{isMuted ? '🔇' : '🔊'}</Text>
+            <Text style={styles.secondaryBtnText}>{isMuted ? "🔇" : "🔊"}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -441,37 +444,45 @@ export default function FocusScreen({
       {/* ── Quit Warning Modal ── */}
       <Modal visible={showQuitWarning} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-           <View style={styles.modalContent}>
-             <Text style={styles.modalSadEmoji}>🥺</Text>
-             <Text style={styles.modalTitle}>Give Up?</Text>
-             <Text style={styles.modalBody}>
-               Are you sure you want to stop? You will lose everything you've worked for this session!
-             </Text>
-             <View style={styles.modalBtns}>
-               <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={cancelQuit}>
-                 <Text style={styles.modalBtnPrimaryText}>Keep Going!</Text>
-               </TouchableOpacity>
-               <TouchableOpacity style={styles.modalBtn} onPress={confirmQuit}>
-                 <Text style={styles.modalBtnDestructiveText}>Yes, Quit</Text>
-               </TouchableOpacity>
-             </View>
-           </View>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalSadEmoji}>🥺</Text>
+            <Text style={styles.modalTitle}>Give Up?</Text>
+            <Text style={styles.modalBody}>
+              Are you sure you want to stop? You will lose everything you've
+              worked for this session!
+            </Text>
+            <View style={styles.modalBtns}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnPrimary]}
+                onPress={cancelQuit}
+              >
+                <Text style={styles.modalBtnPrimaryText}>Keep Going!</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalBtn} onPress={confirmQuit}>
+                <Text style={styles.modalBtnDestructiveText}>Yes, Quit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
 
       {/* ── Focus Broken Modal ── */}
       <Modal visible={showFocusBroken} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-           <View style={styles.modalContent}>
-             <Text style={styles.modalSadEmoji}>💔</Text>
-             <Text style={styles.modalTitle}>Focus Broken!</Text>
-             <Text style={styles.modalBody}>
-               You left the app while a timer was running. Your session has been destroyed. Stay focused next time!
-             </Text>
-             <TouchableOpacity style={[styles.modalBtn, styles.modalBtnPrimary]} onPress={() => setShowFocusBroken(false)}>
-               <Text style={styles.modalBtnPrimaryText}>I understand</Text>
-             </TouchableOpacity>
-           </View>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalSadEmoji}>💔</Text>
+            <Text style={styles.modalTitle}>Focus Broken!</Text>
+            <Text style={styles.modalBody}>
+              You left the app while a timer was running. Your session has been
+              destroyed. Stay focused next time!
+            </Text>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.modalBtnPrimary]}
+              onPress={() => setShowFocusBroken(false)}
+            >
+              <Text style={styles.modalBtnPrimaryText}>I understand</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </View>
@@ -484,7 +495,7 @@ const styles = StyleSheet.create({
     backgroundColor: Palette.bg,
   },
   bgGradient: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -492,28 +503,28 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: Spacing.lg,
     gap: Spacing.lg,
     paddingBottom: Spacing.xl,
   },
   title: {
     fontSize: 26,
-    fontWeight: '800',
+    fontWeight: "800",
     color: Palette.textPrimary,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
     color: Palette.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
     marginTop: -Spacing.sm,
   },
 
   // Session selector
   selectorRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: Spacing.sm,
     backgroundColor: Palette.surface,
     borderRadius: Radius.full,
@@ -536,11 +547,11 @@ const styles = StyleSheet.create({
   },
   selectorChipText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: Palette.textSecondary,
   },
   selectorChipTextActive: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
 
   // Timer ring
@@ -553,37 +564,37 @@ const styles = StyleSheet.create({
   },
   timerText: {
     fontSize: 52,
-    fontWeight: '900',
+    fontWeight: "900",
     color: Palette.textPrimary,
     letterSpacing: -2,
-    fontVariant: ['tabular-nums'],
+    fontVariant: ["tabular-nums"],
   },
   timerLabel: {
     fontSize: 13,
     color: Palette.textSecondary,
-    fontWeight: '500',
+    fontWeight: "500",
     marginTop: 4,
   },
 
   // XP badge
   xpRewardBadge: {
-    backgroundColor: Palette.accent + '22',
+    backgroundColor: Palette.accent + "22",
     borderRadius: Radius.full,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderWidth: 1,
-    borderColor: Palette.accent + '55',
+    borderColor: Palette.accent + "55",
   },
   xpRewardText: {
     fontSize: 13,
     color: Palette.accent,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 
   // Controls
   controls: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: Spacing.lg,
   },
   mainBtn: {
@@ -598,8 +609,8 @@ const styles = StyleSheet.create({
   },
   mainBtnText: {
     fontSize: 17,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontWeight: "800",
+    color: "#FFFFFF",
     letterSpacing: 0.3,
   },
   secondaryBtn: {
@@ -607,8 +618,8 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: Radius.full,
     backgroundColor: Palette.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: Palette.border,
   },
@@ -616,21 +627,21 @@ const styles = StyleSheet.create({
     fontSize: 22,
     color: Palette.textSecondary,
   },
-  
+
   // ── Modals ──
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.85)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: Spacing.xl,
   },
   modalContent: {
     backgroundColor: Palette.surface,
     padding: Spacing.xl,
     borderRadius: Radius.xl,
-    alignItems: 'center',
-    width: '100%',
+    alignItems: "center",
+    width: "100%",
     borderWidth: 1,
     borderColor: Palette.border,
   },
@@ -640,38 +651,38 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: "800",
     color: Palette.textPrimary,
     marginBottom: Spacing.sm,
   },
   modalBody: {
     fontSize: 15,
     color: Palette.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: Spacing.xl,
     lineHeight: 22,
   },
   modalBtns: {
-    width: '100%',
+    width: "100%",
     gap: Spacing.sm,
   },
   modalBtn: {
-    width: '100%',
+    width: "100%",
     paddingVertical: Spacing.md,
     borderRadius: Radius.lg,
-    alignItems: 'center',
+    alignItems: "center",
   },
   modalBtnPrimary: {
     backgroundColor: Palette.primary,
   },
   modalBtnPrimaryText: {
-    color: '#FFF',
-    fontWeight: '800',
+    color: "#FFF",
+    fontWeight: "800",
     fontSize: 16,
   },
   modalBtnDestructiveText: {
     color: Palette.fire,
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 16,
   },
 });

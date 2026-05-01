@@ -20,6 +20,8 @@ const MAPPING = {
   'chevron.right': 'chevron-right',
   'target': 'my-location',
   'star.fill': 'star',
+  'chart.bar.fill': 'leaderboard',
+  'person.2.fill': 'people',
 } as IconMapping;
 
 /**

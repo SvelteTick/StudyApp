@@ -4,13 +4,16 @@ import { useAppProgress, useAppAuth } from '@/hooks/AppContext';
 
 export default function HomeTab() {
   const router = useRouter();
-  const { userData } = useAppProgress();
-  const { logout } = useAppAuth();
+  const { userData, updateProfile } = useAppProgress();
+  const { logout, updatePassword, deleteAccount } = useAppAuth();
   
   return (
     <HomeScreen 
       userData={userData} 
       onLogout={logout}
+      onUpdateProfile={updateProfile}
+      onUpdatePassword={updatePassword}
+      onDeleteAccount={deleteAccount}
       onStartSession={() => router.push('/(tabs)/focus')} 
     />
   );

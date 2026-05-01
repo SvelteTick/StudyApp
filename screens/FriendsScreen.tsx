@@ -14,14 +14,13 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Palette, Spacing, Radius } from '@/constants/theme';
 import { useFriends, type Friend, type FriendRequest } from '@/hooks/useFriends';
+import UserAvatar from '@/components/UserAvatar';
 
 // ─── Friend Card ──────────────────────────────────────────────────────────────
 function FriendCard({ friend, onRemove }: { friend: Friend; onRemove: () => void }) {
   return (
     <View style={styles.friendCard}>
-      <View style={styles.friendAvatarWrap}>
-        <Text style={styles.friendAvatarText}>{friend.name.charAt(0).toUpperCase()}</Text>
-      </View>
+      <UserAvatar avatarId={friend.avatarUrl} fallbackName={friend.name} size="sm" />
       <View style={styles.friendInfo}>
         <Text style={styles.friendName} numberOfLines={1}>{friend.name}</Text>
         <View style={styles.friendMeta}>
@@ -59,9 +58,7 @@ function RequestCard({
 }) {
   return (
     <View style={styles.requestCard}>
-      <View style={styles.friendAvatarWrap}>
-        <Text style={styles.friendAvatarText}>{req.name.charAt(0).toUpperCase()}</Text>
-      </View>
+      <UserAvatar avatarId={req.avatarUrl} fallbackName={req.name} size="sm" />
       <View style={styles.friendInfo}>
         <Text style={styles.friendName} numberOfLines={1}>{req.name}</Text>
         <Text style={styles.requestTag}>
@@ -87,14 +84,12 @@ function SearchResult({
   user,
   onAdd,
 }: {
-  user: { id: string; full_name: string };
+  user: { id: string; full_name: string; avatar_url?: string };
   onAdd: () => void;
 }) {
   return (
     <View style={styles.searchResultRow}>
-      <View style={styles.friendAvatarWrapSm}>
-        <Text style={styles.friendAvatarTextSm}>{user.full_name.charAt(0).toUpperCase()}</Text>
-      </View>
+      <UserAvatar avatarId={user.avatar_url} fallbackName={user.full_name} size="sm" />
       <Text style={styles.searchResultName} numberOfLines={1}>{user.full_name}</Text>
       <TouchableOpacity style={styles.addBtn} onPress={onAdd}>
         <Text style={styles.addBtnText}>+ Add</Text>
@@ -124,7 +119,7 @@ export default function FriendsScreen({ currentUserId }: Props) {
 
   const [refreshing, setRefreshing] = useState(false);
   const [query, setQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<{ id: string; full_name: string }[]>([]);
+  const [searchResults, setSearchResults] = useState<{ id: string; full_name: string; avatar_url?: string }[]>([]);
   const [searching, setSearching] = useState(false);
 
   const handleRefresh = async () => {

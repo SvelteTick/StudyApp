@@ -1,7 +1,7 @@
 import { Palette, Radius, Spacing } from "@/constants/theme";
 import type { UserData } from "@/hooks/useUserProgress";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
@@ -12,6 +12,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SettingsModal } from "@/components/SettingsModal";
+import UserAvatar from "@/components/UserAvatar";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -63,17 +65,24 @@ function GoalProgressDots({ done, total }: { done: number; total: number }) {
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 interface Props {
   onStartSession?: () => void;
-  onLogout?: () => void;
+  onLogout?: () => Promise<void>;
+  onUpdateProfile?: (patch: any) => Promise<void>;
+  onUpdatePassword?: (password: string) => Promise<void>;
+  onDeleteAccount?: () => Promise<void>;
   userData: UserData;
 }
 
 export default function HomeScreen({
   onStartSession,
   onLogout,
+  onUpdateProfile,
+  onUpdatePassword,
+  onDeleteAccount,
   userData,
 }: Props) {
   const { profile, progress } = userData;
   const buttonScale = useRef(new Animated.Value(1)).current;
+  const [isSettingsVisible, setIsSettingsVisible] = useState(false);
 
   const handlePressIn = () => {
     Animated.spring(buttonScale, {
@@ -114,16 +123,19 @@ export default function HomeScreen({
       >
         {/* ── Header Row ── */}
         <View style={styles.headerRow}>
-          <View style={styles.greeting}>
-            <Text style={styles.greetingLabel}>Good morning,</Text>
-            <Text style={styles.greetingName}>{profile.name} 👋</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: Spacing.sm }}>
+            <UserAvatar avatarId={profile.avatarUrl} fallbackName={profile.name} size="md" />
+            <View style={styles.greeting}>
+              <Text style={styles.greetingLabel}>Good morning,</Text>
+              <Text style={styles.greetingName}>{profile.name} 👋</Text>
+            </View>
           </View>
           <TouchableOpacity
-            onPress={onLogout}
-            style={styles.logoutBtn}
-            accessibilityLabel="Logout"
+            onPress={() => setIsSettingsVisible(true)}
+            style={styles.settingsBtn}
+            accessibilityLabel="Settings"
           >
-            <Text style={styles.logoutText}>Logout</Text>
+            <Text style={styles.settingsIcon}>⚙️</Text>
           </TouchableOpacity>
         </View>
 
@@ -260,6 +272,19 @@ export default function HomeScreen({
         {/* Bottom spacer */}
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* ────────────────────────────────────────────────────────────────── */}
+      {/* 6. SETTINGS MODAL                                                  */}
+      {/* ────────────────────────────────────────────────────────────────── */}
+      <SettingsModal
+        visible={isSettingsVisible}
+        onClose={() => setIsSettingsVisible(false)}
+        userData={userData}
+        onUpdateProfile={async (p) => { if (onUpdateProfile) await onUpdateProfile(p); }}
+        onUpdatePassword={async (pw) => { if (onUpdatePassword) await onUpdatePassword(pw); }}
+        onLogout={async () => { if (onLogout) await onLogout(); }}
+        onDeleteAccount={async () => { if (onDeleteAccount) await onDeleteAccount(); }}
+      />
     </View>
   );
 }
@@ -299,18 +324,18 @@ const styles = StyleSheet.create({
   greeting: {
     gap: 2,
   },
-  logoutBtn: {
+  settingsBtn: {
     backgroundColor: "rgba(255,255,255,0.1)",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 8,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: Radius.full,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.15)",
   },
-  logoutText: {
-    color: "#FFF",
-    fontSize: 13,
-    fontWeight: "600",
+  settingsIcon: {
+    fontSize: 20,
   },
   greetingLabel: {
     fontSize: 14,

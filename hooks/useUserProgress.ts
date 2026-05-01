@@ -24,6 +24,8 @@ export interface UserProfile {
   email: string;
   avatarUrl?: string;
   createdAt: string; // ISO date string
+  optOutLeaderboard: boolean;
+  optOutFriendRequests: boolean;
 }
 
 export interface UserProgress {
@@ -100,6 +102,8 @@ export function createDefaultUserData(id: string, name: string, email: string): 
       name,
       email,
       createdAt: new Date().toISOString(),
+      optOutLeaderboard: false,
+      optOutFriendRequests: false,
     },
     progress: {
       level: 1,
@@ -131,7 +135,7 @@ export function useUserProgress(initialData: UserData) {
       if (!initialData.profile.id) return;
       const { data: progressRow, error } = await supabase
         .from('user_progress')
-        .select('*')
+        .select('*, profiles(*)')
         .eq('id', initialData.profile.id)
         .single();
       
@@ -160,6 +164,13 @@ export function useUserProgress(initialData: UserData) {
 
           return {
             ...prev,
+            profile: {
+              ...prev.profile,
+              optOutLeaderboard: progressRow.profiles?.opt_out_leaderboard ?? prev.profile.optOutLeaderboard,
+              optOutFriendRequests: progressRow.profiles?.opt_out_friend_requests ?? prev.profile.optOutFriendRequests,
+              name: progressRow.profiles?.full_name ?? prev.profile.name,
+              avatarUrl: progressRow.profiles?.avatar_url ?? prev.profile.avatarUrl,
+            },
             progress: {
               ...prev.progress,
               level: progressRow.level,
@@ -206,120 +217,65 @@ export function useUserProgress(initialData: UserData) {
   }, [initialData.profile.id]);
 
   /** Call this when a focus session completes */
-  const completeSession = useCallback(async (minutesSpent: number, xpEarned: number) => {
+  const completeSession = useCallback(async (minutesSpent: number) => {
+    // 1. Call the secure server-side RPC (server calculates XP, not the client)
+    const { data: result, error: rpcError } = await supabase.rpc('complete_session', {
+      p_minutes: minutesSpent,
+    });
+
+    if (rpcError) {
+      console.error('Session RPC failed:', rpcError.message);
+      return;
+    }
+
+    // 2. Update local state from the server's authoritative response
     setUserData((prev) => {
+      const xpEarned = result.xp_earned as number;
+      const bonusXp = result.bonus_xp as number;
+      const serverBadgeIds: string[] = result.unlocked_badges || [];
+
+      // Build XP history entries for the UI
       const newEntry: XPEntry = {
-        id: `local_x_${Date.now()}`, // Temporary local ID
+        id: `rpc_x_${Date.now()}`,
         label: `Focus Session (${minutesSpent} min)`,
         xp: xpEarned,
         time: 'Just now',
         timestamp: Date.now(),
       };
 
-      // --- Streak Calculation Logic ---
-      const now = new Date();
-      const lastActive = new Date(prev.progress.lastActiveDate);
-      const todayString = now.toDateString();
-      const lastActiveString = lastActive.toDateString();
-      
-      let newStreak = prev.progress.streakDays;
-      let newSessionsDoneToday = prev.progress.sessionsDoneToday + 1;
-      let newMinutesToday = prev.progress.minutesToday + minutesSpent;
+      let newHistory = [newEntry, ...prev.progress.xpHistory].slice(0, 6);
 
-      if (todayString !== lastActiveString) {
-        // It's a new day! Reset daily stats.
-        newSessionsDoneToday = 1;
-        newMinutesToday = minutesSpent;
-
-        const yesterday = new Date(now);
-        yesterday.setDate(now.getDate() - 1);
-        
-        if (lastActiveString === yesterday.toDateString()) {
-          newStreak += 1;
-        } else {
-          newStreak = 1;
-        }
-      } else if (newStreak === 0) {
-        newStreak = 1; // If it's 0 currently, starting a session makes it 1
-      }
-
-      let updatedProgress = addXPToProgress(
-        {
-          ...prev.progress,
-          streakDays: newStreak,
-          lastActiveDate: now.toISOString(),
-          sessionsDoneToday: newSessionsDoneToday,
-          minutesToday: newMinutesToday,
-          xpHistory: [newEntry, ...prev.progress.xpHistory].slice(0, 6),
-        },
-        xpEarned
-      );
-
-      // ─── Daily Goal Bonus ───
-      // Only reward the 100 XP exactly when they hit the goal for the day
-      const justReachedGoal = updatedProgress.sessionsDoneToday === updatedProgress.dailyGoal;
-      if (justReachedGoal) {
-        updatedProgress = addXPToProgress(updatedProgress, 100);
+      if (bonusXp > 0) {
         const bonusEntry: XPEntry = {
-          id: `local_bonus_${Date.now()}`,
+          id: `rpc_bonus_${Date.now()}`,
           label: 'Daily Goal Bonus',
-          xp: 100,
+          xp: bonusXp,
           time: 'Just now',
           timestamp: Date.now() + 1,
         };
-        updatedProgress.xpHistory = [bonusEntry, ...updatedProgress.xpHistory].slice(0, 6);
+        newHistory = [bonusEntry, ...newHistory].slice(0, 6);
       }
 
-      // ─── Badge Checks ───
-      let updatedBadges = [...updatedProgress.badges];
-      let newlyUnlockedIds: string[] = [];
-
-      const checkUnlock = (id: string, condition: boolean) => {
-        const idx = updatedBadges.findIndex((b) => b.id === id);
-        if (idx !== -1 && !updatedBadges[idx].unlocked && condition) {
-          updatedBadges[idx] = { ...updatedBadges[idx], unlocked: true };
-          newlyUnlockedIds.push(id);
-        }
-      };
-
-      checkUnlock('b1', true); // First Session
-      checkUnlock('b2', newStreak >= 5); // 5-day streak
-      checkUnlock('b4', now.getHours() >= 22); // Night Owl (>= 10pm)
-      checkUnlock('b6', updatedProgress.level >= 10); // Big Brain (Level 10)
-      checkUnlock('b7', now.getDay() === 0 || now.getDay() === 6); // Weekend Warrior (Saturday or Sunday)
-      checkUnlock('b8', updatedProgress.totalXPEarned >= 5000); // Super Star
-      checkUnlock('b9', minutesSpent >= 45); // Zen Master
-
-      let unlockedIds = updatedBadges.filter(b => b.unlocked).map(b => b.id);
-
-      // FIRE & FORGET Network Sync
-      (async () => {
-        // Upload histories
-        const promises = [
-          supabase.from('xp_history').insert({ user_id: prev.profile.id, label: `Focus Session (${minutesSpent} min)`, xp_amount: xpEarned })
-        ];
-        if (justReachedGoal) {
-          promises.push(supabase.from('xp_history').insert({ user_id: prev.profile.id, label: 'Daily Goal Bonus', xp_amount: 100 }));
-        }
-        await Promise.all(promises);
-
-        // Update progress profile
-        await supabase.from('user_progress').update({
-          level: updatedProgress.level,
-          current_xp: updatedProgress.currentXP,
-          total_xp_earned: updatedProgress.totalXPEarned,
-          streak_days: newStreak,
-          last_active_date: updatedProgress.lastActiveDate,
-          sessions_done_today: updatedProgress.sessionsDoneToday,
-          minutes_today: updatedProgress.minutesToday,
-          unlocked_badges: unlockedIds,
-        }).eq('id', prev.profile.id);
-      })();
+      // Map badge IDs from server to our local badge objects
+      const updatedBadges = prev.progress.badges.map(b => ({
+        ...b,
+        unlocked: b.unlocked || serverBadgeIds.includes(b.id),
+      }));
 
       return {
         ...prev,
         progress: {
-          ...updatedProgress,
+          ...prev.progress,
+          level: result.level,
+          currentXP: result.current_xp,
+          nextLevelXP: result.next_level_xp,
+          totalXPEarned: result.total_xp_earned,
+          streakDays: result.streak_days,
+          sessionsDoneToday: result.sessions_done_today,
+          minutesToday: result.minutes_today,
+          dailyGoal: result.daily_goal,
+          lastActiveDate: new Date().toISOString(),
+          xpHistory: newHistory,
           badges: updatedBadges,
         },
       };
@@ -330,11 +286,14 @@ export function useUserProgress(initialData: UserData) {
   const updateProfile = useCallback(async (patch: Partial<UserProfile>) => {
     setUserData((prev) => {
       // Background network sync
-      if (patch.name || patch.avatarUrl) {
-        supabase.from('profiles').update({
-          full_name: patch.name || prev.profile.name,
-          avatar_url: patch.avatarUrl || prev.profile.avatarUrl
-        }).eq('id', prev.profile.id).then();
+      const dbPayload: any = {};
+      if (patch.name !== undefined) dbPayload.full_name = patch.name;
+      if (patch.avatarUrl !== undefined) dbPayload.avatar_url = patch.avatarUrl;
+      if (patch.optOutLeaderboard !== undefined) dbPayload.opt_out_leaderboard = patch.optOutLeaderboard;
+      if (patch.optOutFriendRequests !== undefined) dbPayload.opt_out_friend_requests = patch.optOutFriendRequests;
+      
+      if (Object.keys(dbPayload).length > 0) {
+        supabase.from('profiles').update(dbPayload).eq('id', prev.profile.id).then();
       }
       return { ...prev, profile: { ...prev.profile, ...patch } };
     });
